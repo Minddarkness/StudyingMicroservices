@@ -8,18 +8,18 @@ using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 
 namespace StudyingMicroservices.ProjectA.Controllers
 {
     [ApiController]
-    //[Route("api/[controller]")]
     [Route("[controller]")]
     public class HelloController : ControllerBase
     {
         [HttpGet("hello")]
-        public async Task<IActionResult> GetAsync()
+        public async Task<IActionResult> GetAsync(CancellationToken cancellationToken)
         {
-            var name = await RunGetNameAsync();
+            var name = await RunGetNameAsync(cancellationToken);
 
             string summaryLine = _hello;
 
@@ -31,11 +31,15 @@ namespace StudyingMicroservices.ProjectA.Controllers
             return Ok(summaryLine);
         }
 
-        private static async Task<string> RunGetNameAsync()
+        private static async Task<string> RunGetNameAsync(CancellationToken cancellationToken)
         {
-            // Update port # in the following line.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                Console.WriteLine("Операция прервана");
+                return string.Empty;
+            }
 
-            if(_client.BaseAddress == null)
+            if (_client.BaseAddress == null)
             {
                 _client.BaseAddress = new Uri("http://localhost:43393/");
                 _client.DefaultRequestHeaders.Accept.Clear();
@@ -46,8 +50,8 @@ namespace StudyingMicroservices.ProjectA.Controllers
             string name = null;
             try
             {
-                // Get name
-                var json = await GetAsync("Name/randomName");
+
+                var json = await GetAsync("Name/randomName", cancellationToken);
                 name = JsonSerializer.Deserialize<string>(json);
             }
             catch (Exception e)
@@ -58,8 +62,14 @@ namespace StudyingMicroservices.ProjectA.Controllers
             return name;
         }
 
-        private static async Task<string> GetAsync(string uri)
+        private static async Task<string> GetAsync(string uri, CancellationToken cancellationToken)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                Console.WriteLine("Операция прервана");
+                return string.Empty;
+            }
+
             using HttpResponseMessage response = await _client.GetAsync(uri);
 
             response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
@@ -68,6 +78,6 @@ namespace StudyingMicroservices.ProjectA.Controllers
         }
 
         private const string _hello = "Hello";
-        static HttpClient _client = new HttpClient();
+        private static HttpClient _client = new HttpClient();
     }
 }
